@@ -1,0 +1,141 @@
+// datasource db defines the database connection settings.
+// It is configured for PostgreSQL and uses an environment variable for the connection URL.
+// The 'extensions' feature enables the use of PostgreSQL-specific data types.
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+}
+
+// generator db configures Prisma Client settings.
+// It is set up to use Prisma Client Python with asyncio interface and specific features.
+generator db {
+  provider             = "prisma-client-py"
+  interface            = "asyncio"
+  recursive_type_depth = 5
+  previewFeatures      = ["postgresqlExtensions"]
+}
+
+model User {
+  id                String         @id @default(dbgenerated("gen_random_uuid()"))
+  email             String         @unique
+  hashedPassword    String
+  role              UserRole
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  profiles          Profile[]
+  notifications     Notification[]
+  appointmentBooked Appointment[]
+}
+
+model Profile {
+  id             String     @id @default(dbgenerated("gen_random_uuid()"))
+  firstName      String
+  lastName       String
+  professionalId String?
+  clientId       String?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  schedule       Schedule[]
+  user           User?      @relation(fields: [userId], references: [id])
+  userId         String?
+
+  @@unique([professionalId, clientId])
+}
+
+model Schedule {
+  id             String        @id @default(dbgenerated("gen_random_uuid()"))
+  professionalId String
+  start          DateTime
+  end            DateTime
+  status         Status
+  timeBlock      TimeBlock
+  timeZone       String
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  profile        Profile?      @relation(fields: [profileId], references: [id])
+  profileId      String?
+  appointments   Appointment[]
+}
+
+model Appointment {
+  id         String   @id @default(dbgenerated("gen_random_uuid()"))
+  scheduleId String
+  clientId   String
+  startTime  DateTime
+  endTime    DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  schedule   Schedule @relation(fields: [scheduleId], references: [id])
+  client     User     @relation(fields: [clientId], references: [id])
+}
+
+model Notification {
+  id        String           @id @default(dbgenerated("gen_random_uuid()"))
+  userId    String
+  type      NotificationType
+  message   String
+  createdAt DateTime         @default(now())
+  user      User             @relation(fields: [userId], references: [id])
+}
+
+model ExternalIntegration {
+  id           String        @id @default(dbgenerated("gen_random_uuid()"))
+  name         String
+  apiKey       String
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  integrations Integration[]
+}
+
+model Integration {
+  id                    String              @id @default(dbgenerated("gen_random_uuid()"))
+  externalIntegrationId String
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  externalIntegration   ExternalIntegration @relation(fields: [externalIntegrationId], references: [id])
+  eventType             IntegrationType
+  payload               Json
+}
+
+model Analytics {
+  id        String        @id @default(dbgenerated("gen_random_uuid()"))
+  type      AnalyticsType
+  data      Json
+  createdAt DateTime      @default(now())
+}
+
+enum UserRole {
+  Professional
+  Client
+  Admin
+}
+
+enum Status {
+  Available
+  Booked
+  Unavailable
+}
+
+enum TimeBlock {
+  Morning
+  Afternoon
+  Evening
+  Night
+}
+
+enum NotificationType {
+  Email
+  SMS
+  InApp
+}
+
+enum IntegrationType {
+  ScheduleChange
+  BookingConfirmation
+}
+
+enum AnalyticsType {
+  UserEngagement
+  SystemPerformance
+}
+
